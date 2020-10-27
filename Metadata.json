@@ -1,0 +1,20 @@
+{
+    "Author": "Azure Automation Product Team",
+    "ContentSize": 5806,
+    "ContentUrl": "https://raw.githubusercontent.com/azureautomation/update-management-turn-on-vms/master/UpdateManagement-TurnOnVms.ps1",
+    "DownloadCount": 7831,
+    "Id": "Update-Management-Turn-On-ffadfc26",
+    "IsFederated": true,
+    "IsWorkflow": false,
+    "Popularity": 11,
+    "RaterCount": 2,
+    "Rating": 4.5,
+    "ReleaseDate": "2018-9-14T00:00:00",
+    "RunbookKind": 5,
+    "RunbookKindString": "PowerShell",
+    "Summary": "This is an example script for Update Management pre/post actions. It requires the ThreadJobs module. starts VMs which aren't currently running to install updates. It can be used in conjunction with UpdateManagement-TurnOffVMs to turn off the machines which were started.",
+    "Title": "Update Management - Turn On VMs",
+    "UpdatedDate": "2019-3-15T00:00:00",
+    "Url": "https://github.com/azureautomation/update-management-turn-on-vms",
+    "UserTags": "Patching"
+}
