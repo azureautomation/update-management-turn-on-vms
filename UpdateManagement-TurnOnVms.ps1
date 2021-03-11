@@ -141,7 +141,7 @@ $vmIds | ForEach-Object {
     Write-Output ("Subscription Id: " + $subscriptionId)
     $mute = Select-AzureRmSubscription -Subscription $subscriptionId
 
-    $vm = Get-AzureRmVM -ResourceGroupName $rg -Name $name -Status 
+    $vm = Get-AzureRmVM -ResourceGroupName $rg -Name $name -Status -DefaultProfile $mute 
 
     #Query the state of the VM to see if it's already running or if it's already started
     $state = ($vm.Statuses[1].DisplayStatus -split " ")[1]
@@ -149,7 +149,7 @@ $vmIds | ForEach-Object {
         Write-Output "Starting '$($name)' ..."
         #Store the VM we started so we remember to shut it down later
         $updatedMachines += $vmId
-        $newJob = Start-ThreadJob -ScriptBlock { param($resource, $vmname) Start-AzureRmVM -ResourceGroupName $resource -Name $vmname} -ArgumentList $rg,$name
+        $newJob = Start-ThreadJob -ScriptBlock { param($resource, $vmname, $sub) $context = Select-AzureRmSubscription -Subscription $sub; Start-AzureRmVM -ResourceGroupName $resource -Name $vmname -DefaultProfile $context} -ArgumentList $rg,$name,$subscriptionId
         $jobIDs.Add($newJob.Id)
     }else {
         Write-Output ($name + ": no action taken. State: " + $state) 
