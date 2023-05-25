@@ -1,7 +1,7 @@
-
+﻿
 <#PSScriptInfo
 
-.VERSION 1.3
+.VERSION 1.4
 
 .GUID 5fbe9d16-981d-4a88-874c-365d46c1fcc2
 
@@ -36,9 +36,9 @@ Removed parameters AutomationAccount, ResourceGroup
 
 .DESCRIPTION 
  This script is intended to be run as a part of Update Management Pre/Post scripts.
+  
  
-
-It requires a RunAs account and the usage of the Turn On VMs script as a pre-deployment script.
+It requires a System Managed Identity and the usage of the Turn On VMs script as a pre-deployment script.
  
 
 This script will ensure all Azure VMs in the Update Deployment are turned off after they recieve updates.
@@ -72,16 +72,9 @@ param(
 
 
 #region BoilerplateAuthentication
-#This requires a RunAs account
-$ServicePrincipalConnection = Get-AutomationConnection -Name 'AzureRunAsConnection'
-
-Add-AzureRmAccount `
-    -ServicePrincipal `
-    -TenantId $ServicePrincipalConnection.TenantId `
-    -ApplicationId $ServicePrincipalConnection.ApplicationId `
-    -CertificateThumbprint $ServicePrincipalConnection.CertificateThumbprint
-
-$AzureContext = Select-AzureRmSubscription -SubscriptionId $ServicePrincipalConnection.SubscriptionID
+#This requires a System Managed Identity
+$AzureContext = (Connect-AzAccount -Identity).context
+$AzureContext = Set-AzContext -SubscriptionName $AzureContext.Subscription -DefaultProfile $AzureContext
 #endregion BoilerplateAuthentication
 
 
@@ -108,11 +101,11 @@ if (!$vmIds)
 # In order to prevent asking for an Automation Account name and the resource group of that AA,
 # search through all the automation accounts in the subscription 
 # to find the one with a job which matches our job ID
-$AutomationResource = Get-AzureRmResource -ResourceType Microsoft.Automation/AutomationAccounts
+$AutomationResource = Get-AzResource -ResourceType Microsoft.Automation/AutomationAccounts
 
 foreach ($Automation in $AutomationResource)
 {
-    $Job = Get-AzureRmAutomationJob -ResourceGroupName $Automation.ResourceGroupName -AutomationAccountName $Automation.Name -Id $PSPrivateMetadata.JobId.Guid -ErrorAction SilentlyContinue
+    $Job = Get-AzAutomationJob -ResourceGroupName $Automation.ResourceGroupName -AutomationAccountName $Automation.Name -Id $PSPrivateMetadata.JobId.Guid -ErrorAction SilentlyContinue
     if (!([string]::IsNullOrEmpty($Job)))
     {
         $ResourceGroup = $Job.ResourceGroupName
@@ -122,7 +115,7 @@ foreach ($Automation in $AutomationResource)
 }
 
 #This is used to store the state of VMs
-New-AzureRmAutomationVariable -ResourceGroupName $ResourceGroup -AutomationAccountName $AutomationAccount -Name $runId -Value "" -Encrypted $false
+New-AzAutomationVariable -ResourceGroupName $ResourceGroup -AutomationAccountName $AutomationAccount -Name $runId -Value "" -Encrypted $false
 
 $updatedMachines = @()
 $startableStates = "stopped" , "stopping", "deallocated", "deallocating"
@@ -139,9 +132,9 @@ $vmIds | ForEach-Object {
     $rg = $split[4];
     $name = $split[8];
     Write-Output ("Subscription Id: " + $subscriptionId)
-    $mute = Select-AzureRmSubscription -Subscription $subscriptionId
+    $mute = Set-AzContext -Subscription $subscriptionId
 
-    $vm = Get-AzureRmVM -ResourceGroupName $rg -Name $name -Status -DefaultProfile $mute 
+    $vm = Get-AzVM -ResourceGroupName $rg -Name $name -Status -DefaultProfile $mute 
 
     #Query the state of the VM to see if it's already running or if it's already started
     $state = ($vm.Statuses[1].DisplayStatus -split " ")[1]
@@ -149,7 +142,7 @@ $vmIds | ForEach-Object {
         Write-Output "Starting '$($name)' ..."
         #Store the VM we started so we remember to shut it down later
         $updatedMachines += $vmId
-        $newJob = Start-ThreadJob -ScriptBlock { param($resource, $vmname, $sub) $context = Select-AzureRmSubscription -Subscription $sub; Start-AzureRmVM -ResourceGroupName $resource -Name $vmname -DefaultProfile $context} -ArgumentList $rg,$name,$subscriptionId
+        $newJob = Start-ThreadJob -ScriptBlock { param($resource, $vmname, $sub) $context = Set-AzContext -Subscription $sub; Start-AzVM -ResourceGroupName $resource -Name $vmname -DefaultProfile $context} -ArgumentList $rg,$name,$subscriptionId
         $jobIDs.Add($newJob.Id)
     }else {
         Write-Output ($name + ": no action taken. State: " + $state) 
@@ -177,4 +170,4 @@ foreach($id in $jobsList)
 
 Write-output $updatedMachinesCommaSeperated
 #Store output in the automation variable
-Set-AutomationVariable -Name $runId -Value $updatedMachinesCommaSeperated
+Set-AzAutomationVariable -Name $runId -Value $updatedMachinesCommaSeperated -ResourceGroupName $ResourceGroup -AutomationAccountName $AutomationAccount -Encrypted $false
