@@ -101,11 +101,11 @@ if (!$vmIds)
 # In order to prevent asking for an Automation Account name and the resource group of that AA,
 # search through all the automation accounts in the subscription 
 # to find the one with a job which matches our job ID
-$AutomationResource = Get-AzResource -ResourceType Microsoft.Automation/AutomationAccounts
+$AutomationResource = Get-AzResource -ResourceType Microsoft.Automation/AutomationAccounts -DefaultProfile $AzureContext
 
 foreach ($Automation in $AutomationResource)
 {
-    $Job = Get-AzAutomationJob -ResourceGroupName $Automation.ResourceGroupName -AutomationAccountName $Automation.Name -Id $PSPrivateMetadata.JobId.Guid -ErrorAction SilentlyContinue
+    $Job = Get-AzAutomationJob -ResourceGroupName $Automation.ResourceGroupName -AutomationAccountName $Automation.Name -Id $PSPrivateMetadata.JobId.Guid -DefaultProfile $AzureContext -ErrorAction SilentlyContinue
     if (!([string]::IsNullOrEmpty($Job)))
     {
         $ResourceGroup = $Job.ResourceGroupName
@@ -115,7 +115,7 @@ foreach ($Automation in $AutomationResource)
 }
 
 #This is used to store the state of VMs
-New-AzAutomationVariable -ResourceGroupName $ResourceGroup -AutomationAccountName $AutomationAccount -Name $runId -Value "" -Encrypted $false
+New-AzAutomationVariable -ResourceGroupName $ResourceGroup -AutomationAccountName $AutomationAccount -Name $runId -Value "" -Encrypted $false -DefaultProfile $AzureContext
 
 $updatedMachines = @()
 $startableStates = "stopped" , "stopping", "deallocated", "deallocating"
@@ -170,4 +170,4 @@ foreach($id in $jobsList)
 
 Write-output $updatedMachinesCommaSeperated
 #Store output in the automation variable
-Set-AzAutomationVariable -Name $runId -Value $updatedMachinesCommaSeperated -ResourceGroupName $ResourceGroup -AutomationAccountName $AutomationAccount -Encrypted $false
+Set-AzAutomationVariable -Name $runId -Value $updatedMachinesCommaSeperated -ResourceGroupName $ResourceGroup -AutomationAccountName $AutomationAccount -DefaultProfile $AzureContext -Encrypted $false
